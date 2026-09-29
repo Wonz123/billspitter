@@ -94,9 +94,6 @@ function computeSplit(receipts,people){
   return{totals:t,unassigned:un};
 }
 
-const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
-const csvRows=e=>e.people.map(p=>[e.date.slice(0,10),q(e.receipts.map(r=>r.title).join("; ")),q(p.name),r2(p.total).toFixed(2),e.cur].join(","));
-const csvOf=l=>"date,receipts,person,amount,currency\n"+l.flatMap(csvRows).join("\n");
 const snap=(people,receipts,cur)=>{const s=computeSplit(receipts,people);
   return{id:uid(),date:new Date().toISOString(),cur,grand:receipts.reduce((a,r)=>a+totOf(r),0),
     receipts:receipts.map(r=>({title:r.title,total:totOf(r)})),
@@ -131,10 +128,26 @@ async function readReceipt(file,onProg){
   const{data}=await Tesseract.recognize(c,"eng",{logger:m=>{if(m.status==="recognizing text")onProg(Math.round(m.progress*100))}});
   return parseReceipt(data.text);
 }
-async function saveFile(name,text){
-  const f=new File([text],name,{type:"text/csv"});
-  if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f]});return"shared"}catch(e){if(e&&e.name==="AbortError")return"declined"}}
-  const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);return"downloaded";
+
+const dlFile=f=>{const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)};
+const copyText=async t=>{try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();const ok=document.execCommand("copy");a.remove();if(!ok)throw e}};
+function summaryCanvas(people,receipts,cur,split,grand){
+  const W=900,P=44,rows=[],ft=(w,px)=>w+" "+px+"px system-ui,-apple-system,sans-serif";
+  const add=(l,r,px,w,c,gap)=>rows.push({l,r,px,w,c:c||"#14212B",gap:gap||0});
+  add("Who owes what","",46,"700",0,6);
+  add(new Date().toLocaleDateString([],{dateStyle:"medium"}),"",26,"400","#5B6C78",22);
+  receipts.forEach(r=>add(r.title,money(totOf(r),cur),28,"400","#14212B",0));
+  add("Total",money(grand,cur),32,"700","#14212B",26);
+  people.forEach(p=>{const t=split.totals[p.id];add(p.name,money(t.total,cur),34,"700","#0B62D6",4);
+    t.lines.forEach(l=>add(l.label,money(l.amount,cur),24,"400","#5B6C78",0));rows[rows.length-1].gap=20});
+  const lh=r=>Math.round(r.px*1.5)+r.gap,H=P*2+rows.reduce((s,r)=>s+lh(r),0),c=document.createElement("canvas"),k=2;
+  c.width=W*k;c.height=H*k;const x=c.getContext("2d");x.scale(k,k);x.fillStyle="#fff";x.fillRect(0,0,W,H);x.textBaseline="top";
+  let y=P;
+  rows.forEach(r=>{x.font=ft(r.w,r.px);x.fillStyle=r.c;
+    x.textAlign="right";const rw=r.r?x.measureText(r.r).width+20:0;if(r.r)x.fillText(r.r,W-P,y);
+    x.textAlign="left";let l=r.l;while(x.measureText(l).width>W-2*P-rw&&l.length>1)l=l.slice(0,-1);
+    x.fillText(l===r.l?l:l+"…",P,y);y+=lh(r)});
+  return c;
 }
 
 // Shortcuts can open this page with ?people=Ann,Ben,Cy&cur=RM  (add &new=1 to clear receipts)
@@ -151,7 +164,7 @@ function App(){
   const[people,setPeople]=S(i0.current.people),[receipts,setReceipts]=S(i0.current.receipts),[cur,setCur]=S(i0.current.cur||"RM"),
     [hist,setHist]=S(()=>ld("bs-hist",[])),[view,setView]=S("home"),[nn,setNn]=S(""),[busy,setBusy]=S(false),[err,setErr]=S(""),
     [ask,setAsk]=S(false),[prog,setProg]=S(0),[msg,setMsg]=S(""),[scan,setScan]=S(true),[saved,setSaved]=S(null);
-  const fr=R(null);
+  const fr=R(null),imgRef=R(null);
   E(()=>{sv("bs-state",{people,receipts,cur})},[people,receipts,cur]);
   E(()=>{sv("bs-hist",hist)},[hist]);
 
@@ -174,15 +187,16 @@ function App(){
 
   const rc=receipts.find(r=>r.id===view),split=computeSplit(receipts,people),grand=receipts.reduce((s,r)=>s+totOf(r),0);
 
-  const finalise=async()=>{
-    let e=saved;if(!e){e=snap(people,receipts,cur);setHist(x=>[e,...x]);setSaved(e)}
-    try{const r=await saveFile("bill-split-"+e.date.slice(0,10)+".csv",csvOf([e]));
-      setMsg(r==="declined"?"Saved to history only.":r==="shared"?"Saved to history. Pick Save to Files in the share sheet.":"Saved to history. The file went to your Downloads folder.")}
-    catch(x){setMsg("Saved to history. Couldn't create the file, so use Copy CSV rows.")}
-  };
-  const copyRows=async rows=>{try{await navigator.clipboard.writeText(rows);setMsg("Copied. In Shortcuts use Get Clipboard, then Append to Text File.")}catch(x){setMsg("Copy isn't available here.")}};
-  const saveAll=async()=>{try{const r=await saveFile("bill-split-history.csv",csvOf(hist));setMsg(r==="declined"?"":r==="shared"?"Pick Save to Files in the share sheet.":"The file went to your Downloads folder.")}catch(x){setMsg("Couldn't create the file.")}};
+  const autoSave=()=>{const e={...snap(people,receipts,cur),id:saved?saved.id:uid(),date:saved?saved.date:new Date().toISOString()};
+    setHist(x=>x.some(y=>y.id===e.id)?x.map(y=>y.id===e.id?e:y):[e,...x]);setSaved(e)};
   const newSplit=()=>{setReceipts([]);setSaved(null);setMsg("");setView("home")};
+  const mkImg=()=>new Promise(res=>{const c=summaryCanvas(people,receipts,cur,split,grand);c.toBlob(b=>res(new File([b],"bill-split-"+new Date().toISOString().slice(0,10)+".png",{type:"image/png"})),"image/png")});
+  E(()=>{if(view!=="summary")return;let ok=true;imgRef.current=null;mkImg().then(f=>{if(ok)imgRef.current=f});return()=>{ok=false}},[view]);
+  const copySummary=async()=>{try{await copyText(people.map(p=>p.name+": "+$(split.totals[p.id].total)).join("\n")+"\nTotal: "+$(grand));setMsg("Copied. Paste it into WhatsApp.")}catch(e){setMsg("Copy isn't available here.")}};
+  const saveImg=()=>{const f=imgRef.current;if(!f){setMsg("Image not ready yet. Try again.");return}dlFile(f);setMsg("Image saved to your Downloads folder.")};
+  const shareImg=()=>{const f=imgRef.current;if(!f){setMsg("Image not ready yet. Try again.");return}
+    if(navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f]}).catch(e=>{if(!(e&&e.name==="AbortError"))setMsg("Couldn't share. Try Save as image.")});
+    else{dlFile(f);setMsg("Sharing isn't available here, so the image was saved instead.")}};
 
   const home=()=>h("main",null,h("h1",null,"Split the bill"),
     Sec("card",H2(null,"Who's sharing"),
@@ -239,14 +253,15 @@ function App(){
     Sec("card",D("row",Sp("g","Items"),Sp("amt",$(subOf(r)))),D("row",Sp("g","Tax and charges"),Sp("amt",$(chOf(r)))),D("row sum",Sp("g","Total"),Sp("amt",$(totOf(r))))),
     B("solid wide big",()=>setView("home"),"Done with this receipt"));
 
-  const summary=()=>h("main",null,B("gh back",()=>setView("home"),"Back to receipts"),h("h1",null,"Who owes what"),
+  const summary=()=>h("main",null,B("gh back",()=>setView("home"),"Back to receipts"),h("h1",null,"Who owes what"),saved&&P("mu","Saved to history automatically. Find it under History."),
     split.unassigned>.004&&P("warn",$(split.unassigned)+" isn't assigned to anyone yet."),
     Sec("card",H2(null,"Receipts"),...receipts.map(r=>D({className:"row ln2",key:r.id},Sp("g",r.title),Sp("amt",$(totOf(r))))),D("row sum",Sp("g","Total"),Sp("amt",$(grand)))),
     ...people.map(p=>Sec({className:"card",key:p.id},D("row",H2("g",p.name),Sp("ba",$(split.totals[p.id].total))),
       ...split.totals[p.id].lines.map((l,i)=>D({className:"row ln2",key:i},Sp("g",l.label),Sp("amt",$(l.amount)))),
       !split.totals[p.id].lines.length&&P("mu","Nothing assigned."))),
-    B("solid wide big",finalise,saved?"Save file again":"Save to history and Files"),
-    B("outline wide",()=>copyRows(csvRows(saved||snap(people,receipts,cur)).join("\n")),"Copy CSV rows"),
+    B("solid wide big",copySummary,"Copy as text (WhatsApp)"),
+    B("outline wide",saveImg,"Save as image"),
+    B("outline wide",shareImg,"Share as image"),
     msg&&P("mu",msg),saved&&B("outline wide",newSplit,"Start a new split (keeps names)"));
 
   const history=()=>h("main",null,B("gh back",()=>setView("home"),"Back"),h("h1",null,"History"),
@@ -256,8 +271,7 @@ function App(){
       P("mu",e.receipts.map(r=>r.title+" "+money(r.total,e.cur)).join(" · ")),
       ...e.people.map((p,i)=>D({className:"row ln2",key:i},Sp("g",p.name),Sp("amt",money(p.total,e.cur)))),
       B("gh back",()=>setHist(x=>x.filter(y=>y.id!==e.id)),"Delete"))),
-    hist.length>0&&B("solid wide",saveAll,"Save all to Files (CSV)"),
-    hist.length>0&&B("outline wide",()=>copyRows(hist.flatMap(csvRows).join("\n")),"Copy all CSV rows"),msg&&P("mu",msg));
+    msg&&P("mu",msg));
 
   return h(React.Fragment,null,
     In({ref:fr,type:"file",accept:"image/*",multiple:true,hidden:true,onChange:onFiles}),
@@ -265,7 +279,7 @@ function App(){
     ask&&D({className:"scrim",role:"dialog","aria-modal":"true","aria-label":"Before finalising"},
       D("sheet",H2(null,"Before finalising"),P(null,"Do you want to amend anything or add another receipt first?"),
         B("outline wide",()=>setAsk(false),"Amend or add a receipt"),
-        B("solid wide",()=>{setAsk(false);setSaved(null);setMsg("");setView("summary")},"Finalise split"))));
+        B("solid wide",()=>{setAsk(false);setMsg("");autoSave();setView("summary")},"Finalise split"))));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(h(App));
 </script></body></html>
