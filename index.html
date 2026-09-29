@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Split Bill">
+<title>Split the Bill</title>
+<style>
+:root{--bg:#E8EDF1;--pp:#fff;--ink:#14212B;--mu:#5B6C78;--ln:#C5D0D8;--ac:#0B62D6;--in:#F6F8FA;--wb:#FFF1CC;--wi:#6B4A00;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0F1720;--pp:#18232E;--ink:#E7EDF2;--mu:#9DAEBB;--ln:#2F4050;--ac:#2F6FE0;--in:#101A24;--wb:#3A2E0A;--wi:#F2D58A}}
+:root[data-theme="dark"]{--bg:#0F1720;--pp:#18232E;--ink:#E7EDF2;--mu:#9DAEBB;--ln:#2F4050;--ac:#2F6FE0;--in:#101A24;--wb:#3A2E0A;--wi:#F2D58A}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 ui-rounded,system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:480px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:14px}
+h1{font-size:30px;line-height:1.1;margin:6px 0 2px;letter-spacing:-.01em}
+h2{font-size:17px;margin:0 0 4px}
+p{margin:0}
+.mu{color:var(--mu);font-size:14px}
+.card{background:var(--pp);border:1px solid var(--ln);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;align-items:center;gap:8px}
+.g{flex:1;min-width:0}
+.r{text-align:right}
+input{font:inherit;color:inherit;background:var(--in);border:1px solid var(--ln);border-radius:8px;padding:10px;min-height:44px;width:100%}
+input:focus-visible,button:focus-visible{outline:3px solid var(--ac);outline-offset:1px}
+.tt{font-size:24px;font-weight:700;background:transparent;border-color:transparent;padding-left:0}
+.ai{width:100px;flex:none;text-align:right}
+.qi{width:64px;flex:none;text-align:center}
+.cu{width:80px;text-align:center}
+.tax .ai{width:84px}
+.ai,.qi,.amt,.ba,.pn{font-variant-numeric:tabular-nums}
+.op{color:var(--mu);flex:none}
+.amt,.ba{white-space:nowrap}
+.ba{font-size:22px;font-weight:700}
+button{font:inherit;color:inherit;min-height:44px;border-radius:8px;padding:0 14px;cursor:pointer;border:1px solid transparent;background:none}
+button:disabled{opacity:.5;cursor:default}
+.solid{background:var(--ac);color:#fff;font-weight:600}
+.outline{border-color:var(--ac);color:var(--ac);font-weight:600}
+.md{min-width:56px;flex:none;padding:0 10px}
+.gh{color:var(--mu);padding:0 8px;font-size:14px;flex:none}
+.back{align-self:flex-start;padding-left:0}
+.wide{width:100%}
+.big{min-height:52px;font-size:17px}
+.link{text-align:left;padding:0 4px;font-weight:650;font-size:18px}
+.rc,.it{display:flex;flex-direction:column;gap:6px;padding-bottom:12px;border-bottom:1px dashed var(--ln)}
+.it{gap:8px}
+.it:last-of-type{border-bottom:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-height:38px;border:1px solid var(--ln);border-radius:999px;padding:0 14px;background:var(--in)}
+.chip.on,.pc{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.pc{display:inline-flex;align-items:center;border-radius:999px;min-height:38px;padding:0 4px 0 2px}
+.pc button{min-height:38px;color:var(--bg);padding:0}
+.pc .nm{padding:0 8px 0 12px}
+.st{width:34px;font-size:20px;line-height:1}
+.pn{min-width:18px;text-align:center;font-weight:650}
+.sum{border-top:1px solid var(--ink);padding-top:8px;font-weight:700;font-size:18px;align-items:baseline}
+.ln2{font-size:14px;color:var(--mu);align-items:baseline}
+.warn{background:var(--wb);color:var(--wi);border-radius:8px;padding:10px 12px;font-size:14px}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;padding:12px}
+.sheet{background:var(--pp);border-radius:14px;padding:20px;width:100%;max-width:480px;display:flex;flex-direction:column;gap:12px}
+</style></head>
+<body><div id="root"></div>
+<noscript>This app needs JavaScript.</noscript>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
+<script>
+const {useState:S,useEffect:E,useRef:R}=React,h=React.createElement;
+const el=t=>(c,...k)=>h(t,typeof c==="string"?{className:c}:c,...k);
+const D=el("div"),Sp=el("span"),P=el("p"),Sec=el("section"),H2=el("h2");
+const B=(c,f,...k)=>h("button",typeof c==="string"?{className:c,onClick:f}:{...c,onClick:f},...k);
+const In=p=>h("input",p);
+const uid=()=>Math.random().toString(36).slice(2,9);
+const num=v=>{const n=parseFloat(String(v??"").replace(/,/g,""));return isNaN(n)?0:n};
+const r2=n=>Math.round((n+Number.EPSILON)*100)/100;
+const money=(n,c)=>c+" "+r2(n).toFixed(2);
+const ld=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}};
+const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+
+const lineOf=it=>num(it.unit)*num(it.qty);
+const subOf=r=>r.items.reduce((s,i)=>s+lineOf(i),0);
+const chAmt=(r,c)=>c.mode==="pct"?subOf(r)*num(c.value)/100:num(c.value);
+const chOf=r=>r.charges.reduce((s,c)=>s+chAmt(r,c),0);
+const totOf=r=>subOf(r)+chOf(r);
+const shareOf=(r,it)=>{if(it.taxOverride!==null)return num(it.taxOverride);const s=subOf(r);return s?lineOf(it)/s*chOf(r):0};
+const portTot=it=>Object.values(it.portions).reduce((s,n)=>s+n,0);
+
+function computeSplit(receipts,people){
+  const t=Object.fromEntries(people.map(p=>[p.id,{lines:[],total:0}]));let un=0;
+  receipts.forEach(r=>r.items.forEach(it=>{
+    const full=lineOf(it)+shareOf(r,it),sh=people.filter(p=>(it.portions[p.id]||0)>0),w=sh.reduce((s,p)=>s+it.portions[p.id],0);
+    if(!sh.length){un+=full;return}
+    sh.forEach(p=>{const n=it.portions[p.id],part=full*n/w;
+      t[p.id].lines.push({label:(it.name||"Item")+" ("+r.title+(w>1?", "+n+" of "+w+" portions":"")+")",amount:part});t[p.id].total+=part})}));
+  return{totals:t,unassigned:un};
+}
+
+const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+const csvRows=e=>e.people.map(p=>[e.date.slice(0,10),q(e.receipts.map(r=>r.title).join("; ")),q(p.name),r2(p.total).toFixed(2),e.cur].join(","));
+const csvOf=l=>"date,receipts,person,amount,currency\n"+l.flatMap(csvRows).join("\n");
+const snap=(people,receipts,cur)=>{const s=computeSplit(receipts,people);
+  return{id:uid(),date:new Date().toISOString(),cur,grand:receipts.reduce((a,r)=>a+totOf(r),0),
+    receipts:receipts.map(r=>({title:r.title,total:totOf(r)})),
+    people:people.map(p=>({name:p.name,total:s.totals[p.id].total,lines:s.totals[p.id].lines}))}};
+
+const AM=/(-?\d[\d.,]*[.,]\d{2})\s*[A-Za-z]?\s*$/;
+const SKIP=/total|cash|change|visa|master|tender|payment|balance|amount due|card|paid|tunai|baki/i;
+const CHG=/sst|tax|gst|vat|service|svc|cukai/i;
+const toNum=t=>{const m=t.match(/^(-?)(.*)[.,](\d{2})$/);return m?parseFloat(m[1]+m[2].replace(/[.,]/g,"")+"."+m[3]):num(t)};
+function parseReceipt(text){
+  const r={id:uid(),title:"",items:[],charges:[]};
+  for(const raw of text.split(/\n/)){
+    const line=raw.replace(/\s+/g," ").trim();if(!line)continue;
+    const m=line.match(AM);
+    if(!m){if(!r.title&&/[A-Za-z]{3}/.test(line))r.title=line.slice(0,40);continue}
+    const a=toNum(m[1]);let label=line.slice(0,m.index).trim()||"Item";
+    if(/rounding/i.test(label))r.charges.push({id:uid(),name:"Rounding",mode:"amt",value:String(a)});
+    else if(SKIP.test(label))continue;
+    else if(CHG.test(label)){const pm=label.match(/(\d+(?:\.\d+)?)\s*%/);r.charges.push(pm?{id:uid(),name:label,mode:"pct",value:pm[1]}:{id:uid(),name:label,mode:"amt",value:String(a)})}
+    else{let qy=1;const qm=label.match(/^(\d{1,2})\s*[xX]?\s+(.+)$/);
+      if(qm){qy=+qm[1]||1;label=/^[\d.,\sxX]+$/.test(qm[2])?"Item":qm[2]}
+      r.items.push({id:uid(),name:label,unit:String(Math.round(a/qy*1e4)/1e4),qty:String(qy),portions:{},taxOverride:null})}
+  }
+  r.title=r.title||"Receipt";return r;
+}
+function prep(file,max=2000){return new Promise((res,rej)=>{const u=URL.createObjectURL(file),i=new Image();
+  i.onload=()=>{const k=Math.min(1,max/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);
+    const x=c.getContext("2d");x.filter="grayscale(1) contrast(1.3)";x.drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c)};
+  i.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("image"))};i.src=u})}
+async function readReceipt(file,onProg){
+  const c=await prep(file);
+  const{data}=await Tesseract.recognize(c,"eng",{logger:m=>{if(m.status==="recognizing text")onProg(Math.round(m.progress*100))}});
+  return parseReceipt(data.text);
+}
+async function saveFile(name,text){
+  const f=new File([text],name,{type:"text/csv"});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f]});return"shared"}catch(e){if(e&&e.name==="AbortError")return"declined"}}
+  const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);return"downloaded";
+}
+
+// Shortcuts can open this page with ?people=Ann,Ben,Cy&cur=RM  (add &new=1 to clear receipts)
+function init(){
+  const s=ld("bs-state",{people:[],receipts:[],cur:"RM"});
+  try{const u=new URLSearchParams(location.search),ns=(u.get("people")||"").split(",").map(x=>x.trim()).filter(Boolean);
+    if(ns.length){s.people=ns.map(n=>({id:uid(),name:n}));s.receipts=[]}else if(u.get("new")==="1")s.receipts=[];
+    if(u.get("cur"))s.cur=u.get("cur")}catch(e){}
+  return s;
+}
+
+function App(){
+  const i0=R(null);if(!i0.current)i0.current=init();
+  const[people,setPeople]=S(i0.current.people),[receipts,setReceipts]=S(i0.current.receipts),[cur,setCur]=S(i0.current.cur||"RM"),
+    [hist,setHist]=S(()=>ld("bs-hist",[])),[view,setView]=S("home"),[nn,setNn]=S(""),[busy,setBusy]=S(false),[err,setErr]=S(""),
+    [ask,setAsk]=S(false),[prog,setProg]=S(0),[msg,setMsg]=S(""),[scan,setScan]=S(true),[saved,setSaved]=S(null);
+  const fr=R(null);
+  E(()=>{sv("bs-state",{people,receipts,cur})},[people,receipts,cur]);
+  E(()=>{sv("bs-hist",hist)},[hist]);
+
+  const $=n=>money(n,cur);
+  const pr=(rid,f)=>setReceipts(rs=>rs.map(r=>r.id===rid?f(r):r));
+  const pi=(rid,iid,f)=>pr(rid,r=>({...r,items:r.items.map(x=>x.id===iid?{...x,...f(x)}:x)}));
+  const pc=(rid,cid,f)=>pr(rid,r=>({...r,charges:r.charges.map(x=>x.id===cid?{...x,...f(x)}:x)}));
+  const sp=(rid,iid,pid,n)=>pi(rid,iid,it=>{const p={...it.portions};if(n<=0)delete p[pid];else p[pid]=n;return{portions:p}});
+  const addP=()=>{const ns=nn.split(/[,\n]/).map(x=>x.trim()).filter(Boolean);if(!ns.length)return;setPeople(p=>[...p,...ns.map(n=>({id:uid(),name:n}))]);setNn("")};
+  const rmP=id=>{setPeople(p=>p.filter(x=>x.id!==id));setReceipts(rs=>rs.map(r=>({...r,items:r.items.map(i=>{const p={...i.portions};delete p[id];return{...i,portions:p}})})))};
+  const onFiles=async e=>{
+    const fs=[...e.target.files];e.target.value="";if(!fs.length)return;setBusy(true);setErr("");let last=null;
+    for(const f of fs){try{const r=await readReceipt(f,setProg);setReceipts(rs=>[...rs,r]);last=r.id}
+      catch(x){setErr("Couldn't read that receipt. Try a clearer, well-lit photo or enter it manually.")}}
+    setBusy(false);if(last)setView(last);
+  };
+  const addManual=()=>{const r={id:uid(),title:"Receipt "+(receipts.length+1),items:[],charges:[]};setReceipts(rs=>[...rs,r]);setView(r.id)};
+  const toggleMode=(r,c)=>{if(c.mode==="pct")pc(r.id,c.id,()=>({mode:"amt",value:r2(chAmt(r,c)).toFixed(2)}));
+    else{const s=subOf(r);pc(r.id,c.id,()=>({mode:"pct",value:s?r2(num(c.value)/s*100).toFixed(2):"0"}))}};
+
+  const rc=receipts.find(r=>r.id===view),split=computeSplit(receipts,people),grand=receipts.reduce((s,r)=>s+totOf(r),0);
+
+  const finalise=async()=>{
+    let e=saved;if(!e){e=snap(people,receipts,cur);setHist(x=>[e,...x]);setSaved(e)}
+    try{const r=await saveFile("bill-split-"+e.date.slice(0,10)+".csv",csvOf([e]));
+      setMsg(r==="declined"?"Saved to history only.":r==="shared"?"Saved to history. Pick Save to Files in the share sheet.":"Saved to history. The file went to your Downloads folder.")}
+    catch(x){setMsg("Saved to history. Couldn't create the file, so use Copy CSV rows.")}
+  };
+  const copyRows=async rows=>{try{await navigator.clipboard.writeText(rows);setMsg("Copied. In Shortcuts use Get Clipboard, then Append to Text File.")}catch(x){setMsg("Copy isn't available here.")}};
+  const saveAll=async()=>{try{const r=await saveFile("bill-split-history.csv",csvOf(hist));setMsg(r==="declined"?"":r==="shared"?"Pick Save to Files in the share sheet.":"The file went to your Downloads folder.")}catch(x){setMsg("Couldn't create the file.")}};
+  const newSplit=()=>{setReceipts([]);setSaved(null);setMsg("");setView("home")};
+
+  const home=()=>h("main",null,h("h1",null,"Split the bill"),
+    Sec("card",H2(null,"Who's sharing"),
+      ...people.map(p=>D({className:"row",key:p.id},
+        In({className:"g","aria-label":"Name",value:p.name,onChange:e=>setPeople(ps=>ps.map(x=>x.id===p.id?{...x,name:e.target.value}:x))}),
+        B("gh",()=>rmP(p.id),"Remove"))),
+      D("row",In({className:"g",placeholder:"Add names (commas ok)",value:nn,onChange:e=>setNn(e.target.value),onKeyDown:e=>e.key==="Enter"&&addP()}),
+        B({className:"solid",disabled:!nn.trim()},addP,"Add"))),
+    Sec("card",H2(null,"Receipts"),
+      !receipts.length&&P("mu","No receipts yet."+(scan?" Take a photo or upload one.":"")),
+      ...receipts.map(r=>D({className:"rc",key:r.id},
+        D("row",B("link g",()=>setView(r.id),r.title),B("gh",()=>setReceipts(rs=>rs.filter(x=>x.id!==r.id)),"Delete")),
+        P("mu","Items "+$(subOf(r))+" + tax and charges "+$(chOf(r))),
+        D("row",Sp("g","Total"),Sp("ba",$(totOf(r)))))),
+      receipts.length>1&&D("row sum",Sp("g","All receipts"),Sp("ba",$(grand))),
+      scan?B({className:"solid wide",disabled:busy},()=>fr.current&&fr.current.click(),busy?"Reading receipt… "+prog+"%":"Photo or upload"):P("mu","Photo reading isn't available in this view. Enter items manually."),
+      B("outline wide",addManual,"Enter manually"),err&&P("warn",err)),
+    Sec("card",D("row",h("label",{className:"g",htmlFor:"cur"},"Currency"),In({id:"cur",className:"cu",value:cur,onChange:e=>setCur(e.target.value)}))),
+    B("outline wide",()=>{setMsg("");setView("history")},"History ("+hist.length+")"),
+    receipts.length>0&&people.length>0&&B("solid wide big",()=>setAsk(true),"Finalise split"));
+
+  const editor=r=>h("main",null,B("gh back",()=>setView("home"),"Back"),
+    In({className:"tt","aria-label":"Receipt title",value:r.title,onChange:e=>pr(r.id,x=>({...x,title:e.target.value}))}),
+    P("mu","Check every line. Names, prices, quantities, portions and taxes can all be edited."),
+    Sec("card",H2(null,"Items"),P("mu","Price each × quantity gives the line total. Tap a name to share the item, then set how many portions that person takes."),
+      ...r.items.map(it=>{const w=portTot(it);return D({className:"it",key:it.id},
+        In({placeholder:"Item","aria-label":"Item name",value:it.name,onChange:e=>pi(r.id,it.id,()=>({name:e.target.value}))}),
+        D("row",In({className:"ai",inputMode:"decimal",placeholder:"Price each","aria-label":"Price of one item",value:it.unit,onChange:e=>pi(r.id,it.id,()=>({unit:e.target.value}))}),
+          Sp("op","×"),In({className:"qi",inputMode:"decimal","aria-label":"Quantity",value:it.qty,onChange:e=>pi(r.id,it.id,()=>({qty:e.target.value}))}),
+          Sp("g amt r",$(lineOf(it)))),
+        D("chips",!people.length&&Sp("mu","Add people on the first screen to assign this item."),
+          people.length>0&&B("chip"+(people.every(p=>it.portions[p.id]>0)?" on":""),()=>pi(r.id,it.id,x=>({portions:people.every(p=>x.portions[p.id]>0)?{}:Object.fromEntries(people.map(p=>[p.id,x.portions[p.id]||1]))})),"Everyone"),
+          ...people.map(p=>{const n=it.portions[p.id]||0;
+            return n>0?Sp({className:"pc",key:p.id},
+              B({className:"nm","aria-pressed":"true","aria-label":p.name+", "+n+" portions. Tap to remove"},()=>sp(r.id,it.id,p.id,0),p.name),
+              B({className:"st","aria-label":"Fewer portions for "+p.name},()=>sp(r.id,it.id,p.id,Math.max(1,n-1)),"−"),
+              Sp("pn",n),
+              B({className:"st","aria-label":"More portions for "+p.name},()=>sp(r.id,it.id,p.id,n+1),"+"))
+              :B({className:"chip",key:p.id,"aria-pressed":"false"},()=>sp(r.id,it.id,p.id,1),p.name)})),
+        w>0&&P("mu",w+(w===1?" portion":" portions")+" in total"),
+        D("row tax",Sp("mu g","Tax on this item"+(it.taxOverride!==null?" (edited)":"")),
+          In({className:"ai",inputMode:"text","aria-label":"Tax on this item",value:it.taxOverride!==null?it.taxOverride:r2(shareOf(r,it)).toFixed(2),onChange:e=>pi(r.id,it.id,()=>({taxOverride:e.target.value}))}),
+          it.taxOverride!==null&&B("gh",()=>pi(r.id,it.id,()=>({taxOverride:null})),"Reset"),
+          B("gh",()=>pr(r.id,x=>({...x,items:x.items.filter(y=>y.id!==it.id)})),"Delete")))}),
+      B("outline wide",()=>pr(r.id,x=>({...x,items:[...x.items,{id:uid(),name:"",unit:"",qty:"1",portions:{},taxOverride:null}]})),"Add item")),
+    Sec("card",H2(null,"Tax and charges"),P("mu","Enter the rate as a percentage. It is worked out for every item automatically. Tap % to switch to a fixed amount."),
+      ...r.charges.map(c=>D({className:"it",key:c.id},
+        D("row",In({className:"g",placeholder:"e.g. SST or Service charge","aria-label":"Charge name",value:c.name,onChange:e=>pc(r.id,c.id,()=>({name:e.target.value}))}),
+          B("gh",()=>pr(r.id,x=>({...x,charges:x.charges.filter(y=>y.id!==c.id)})),"Delete")),
+        D("row",In({className:"ai",inputMode:"text",placeholder:"0","aria-label":c.mode==="pct"?"Rate in percent":"Fixed amount",value:c.value,onChange:e=>pc(r.id,c.id,()=>({value:e.target.value}))}),
+          B({className:"outline md","aria-label":c.mode==="pct"?"Percentage. Tap to use a fixed amount":"Fixed amount. Tap to use a percentage"},()=>toggleMode(r,c),c.mode==="pct"?"%":cur),
+          Sp("g amt r",$(chAmt(r,c)))))),
+      B("outline wide",()=>pr(r.id,x=>({...x,charges:[...x.charges,{id:uid(),name:"",mode:"pct",value:""}]})),"Add tax, charge or discount")),
+    Sec("card",D("row",Sp("g","Items"),Sp("amt",$(subOf(r)))),D("row",Sp("g","Tax and charges"),Sp("amt",$(chOf(r)))),D("row sum",Sp("g","Total"),Sp("amt",$(totOf(r))))),
+    B("solid wide big",()=>setView("home"),"Done with this receipt"));
+
+  const summary=()=>h("main",null,B("gh back",()=>setView("home"),"Back to receipts"),h("h1",null,"Who owes what"),
+    split.unassigned>.004&&P("warn",$(split.unassigned)+" isn't assigned to anyone yet."),
+    Sec("card",H2(null,"Receipts"),...receipts.map(r=>D({className:"row ln2",key:r.id},Sp("g",r.title),Sp("amt",$(totOf(r))))),D("row sum",Sp("g","Total"),Sp("amt",$(grand)))),
+    ...people.map(p=>Sec({className:"card",key:p.id},D("row",H2("g",p.name),Sp("ba",$(split.totals[p.id].total))),
+      ...split.totals[p.id].lines.map((l,i)=>D({className:"row ln2",key:i},Sp("g",l.label),Sp("amt",$(l.amount)))),
+      !split.totals[p.id].lines.length&&P("mu","Nothing assigned."))),
+    B("solid wide big",finalise,saved?"Save file again":"Save to history and Files"),
+    B("outline wide",()=>copyRows(csvRows(saved||snap(people,receipts,cur)).join("\n")),"Copy CSV rows"),
+    msg&&P("mu",msg),saved&&B("outline wide",newSplit,"Start a new split (keeps names)"));
+
+  const history=()=>h("main",null,B("gh back",()=>setView("home"),"Back"),h("h1",null,"History"),
+    !hist.length&&P("mu","No saved splits yet. Finalise a split and save it to see it here."),
+    ...hist.map(e=>Sec({className:"card",key:e.id},
+      D("row",H2("g",new Date(e.date).toLocaleString([],{dateStyle:"medium",timeStyle:"short"})),Sp("ba",money(e.grand,e.cur))),
+      P("mu",e.receipts.map(r=>r.title+" "+money(r.total,e.cur)).join(" · ")),
+      ...e.people.map((p,i)=>D({className:"row ln2",key:i},Sp("g",p.name),Sp("amt",money(p.total,e.cur)))),
+      B("gh back",()=>setHist(x=>x.filter(y=>y.id!==e.id)),"Delete"))),
+    hist.length>0&&B("solid wide",saveAll,"Save all to Files (CSV)"),
+    hist.length>0&&B("outline wide",()=>copyRows(hist.flatMap(csvRows).join("\n")),"Copy all CSV rows"),msg&&P("mu",msg));
+
+  return h(React.Fragment,null,
+    In({ref:fr,type:"file",accept:"image/*",multiple:true,hidden:true,onChange:onFiles}),
+    view==="home"?home():view==="summary"?summary():view==="history"?history():rc?editor(rc):home(),
+    ask&&D({className:"scrim",role:"dialog","aria-modal":"true","aria-label":"Before finalising"},
+      D("sheet",H2(null,"Before finalising"),P(null,"Do you want to amend anything or add another receipt first?"),
+        B("outline wide",()=>setAsk(false),"Amend or add a receipt"),
+        B("solid wide",()=>{setAsk(false);setSaved(null);setMsg("");setView("summary")},"Finalise split"))));
+}
+ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+</script></body></html>
